@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Админ — Dashboard</title>
+  <style>
+    body{font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;background:#0f172a;color:#e2e8f0;margin:0}
+    header{display:flex;justify-content:space-between;align-items:center;padding:16px 20px;background:#111827;border-bottom:1px solid #1f2937}
+    .wrap{padding:20px}
+    .cards{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px}
+    .card{background:#111827;border:1px solid #1f2937;border-radius:12px;padding:16px}
+    .muted{color:#94a3b8}
+    .nav a{color:#93c5fd;margin-right:12px;text-decoration:none}
+    .links{display:flex;gap:10px;flex-wrap:wrap;margin-top:16px}
+    a.btn,button.btn{background:#334155;color:#e2e8f0;border:none;border-radius:8px;padding:8px 10px;text-decoration:none;display:inline-block}
+    .btn.primary{background:#3b82f6}
+  </style>
+</head>
+<body>
+  <header>
+    <div>
+      <strong>Админ‑панель</strong>
+      <span class="muted">/ Dashboard</span>
+    </div>
+    <nav class="nav">
+      <a href="/admin/dashboard">Dashboard</a>
+      <a href="/admin/users">Users</a>
+      <a href="/admin/leaderboard">Leaderboard</a>
+      <a href="/admin/logs">Logs</a>
+      <a href="/admin/progress">Progress</a>
+      <a href="/admin/endpoints">Endpoints</a>
+      <form method="post" action="/admin/logout" style="display:inline">
+        <button class="btn" type="submit">Выйти</button>
+      </form>
+    </nav>
+  </header>
+  <div class="wrap">
+    <div class="cards">
+      <div class="card">
+        <div class="muted">Пользователи</div>
+        <div style="font-size:28px;font-weight:700">{{ total_users }}</div>
+        <div class="muted">Активные: {{ active_users }}</div>
+      </div>
+      <div class="card">
+        <div class="muted">Попытки</div>
+        <div style="font-size:28px;font-weight:700">{{ total_attempts }}</div>
+        <div class="muted">Верных: {{ correct_attempts }}</div>
+      </div>
+      <div class="card">
+        <div class="muted">Логи</div>
+        <div style="font-size:28px;font-weight:700">{{ total_logs }}</div>
+        <div class="muted">Активных этапов: {{ endpoints_total }}</div>
+      </div>
+    </div>
+
+    <div class="links">
+      <a class="btn primary" href="/admin/users">Управление пользователями</a>
+      <a class="btn" href="/admin/leaderboard">Лидерборд</a>
+      <a class="btn" href="/admin/logs">Логи</a>
+      <a class="btn" href="/admin/endpoints">Этапы</a>
+      <a class="btn" href="/admin/export/judges.csv">Экспорт судей (CSV)</a>
+      <a class="btn" href="/admin/export/judges.pdf">Экспорт судей (PDF)</a>
+      <a class="btn" href="/admin/export/users.csv">Экспорт Users CSV</a>
+      <a class="btn" href="/admin/export/attempts.csv">Экспорт Attempts CSV</a>
+      <a class="btn" href="/admin/export/leaderboard.csv">Экспорт Leaderboard CSV</a>
+    </div>
+  </div>
+</body>
+</html>

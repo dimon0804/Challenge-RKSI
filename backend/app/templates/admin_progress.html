@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Админ — Прогресс</title>
+  <style>
+    body{font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;background:#0f172a;color:#e2e8f0;margin:0}
+    header{display:flex;justify-content:space-between;align-items:center;padding:16px 20px;background:#111827;border-bottom:1px solid #1f2937}
+    .wrap{padding:20px}
+    table{width:100%;border-collapse:collapse;margin-top:12px}
+    th,td{padding:8px 10px;border-bottom:1px solid #1f2937;text-align:left;font-size:13px}
+    th{color:#cbd5e1;font-weight:600;background:#0b1220;position:sticky;top:0;z-index:1}
+    tr:hover{background:#0b122033}
+    .muted{color:#94a3b8}
+    .nav a{color:#93c5fd;margin-right:12px;text-decoration:none}
+    .badge{display:inline-block;padding:2px 8px;border-radius:999px;font-size:11px}
+    .badge.ok{background:#166534;color:#bbf7d0}
+    .badge.fail{background:#7f1d1d;color:#fecaca}
+    .badge.none{background:#1f2937;color:#9ca3af}
+  </style>
+</head>
+<body>
+  <header>
+    <div>
+      <strong>Админ‑панель</strong>
+      <span class="muted">/ Прогресс участников</span>
+    </div>
+    <nav class="nav">
+      <a href="/admin/dashboard">Dashboard</a>
+      <a href="/admin/users">Users</a>
+      <a href="/admin/leaderboard">Leaderboard</a>
+      <a href="/admin/logs">Logs</a>
+      <a href="/admin/progress">Progress</a>
+      <a href="/admin/endpoints">Endpoints</a>
+      <form method="post" action="/admin/logout" style="display:inline">
+        <button type="submit">Выйти</button>
+      </form>
+    </nav>
+  </header>
+  <div class="wrap">
+    <div class="muted">Таблица: пользователи × этапы. Показано количество попыток и статус прохождения.</div>
+    <form method="get" action="/admin/progress" style="margin-top:12px;display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end">
+      <div>
+        <label class="muted">Поиск по логину</label><br/>
+        <input type="text" name="username" value="{{ filter_username or '' }}" />
+      </div>
+      <div>
+        <label class="muted">Минимум решённых этапов</label><br/>
+        <input type="number" name="min_solved" min="0" value="{{ min_solved }}" />
+      </div>
+      <div>
+        <button type="submit">Фильтровать</button>
+        <a href="/admin/progress" class="muted" style="margin-left:8px">Сбросить</a>
+      </div>
+    </form>
+    <table>
+      <thead>
+        <tr>
+          <th>User</th>
+          <th>Решено</th>
+          <th>Попыток</th>
+          {% for ep in endpoints %}
+            <th>#{{ ep.id }} ({{ ep.order_index }})</th>
+          {% endfor %}
+        </tr>
+      </thead>
+      <tbody>
+        {% for row in rows %}
+          <tr>
+            <td>{{ row.user.username }}</td>
+            <td>{{ row.solved }}</td>
+            <td>{{ row.total_attempts }}</td>
+            {% for ep in endpoints %}
+              {% set cell = row.by_ep.get(ep.id) %}
+              <td>
+                {% if cell %}
+                  {% if cell.correct %}
+                    <span class="badge ok">OK</span>
+                  {% else %}
+                    <span class="badge fail">err</span>
+                  {% endif %}
+                  <span class="muted">{{ cell.attempts }} попыт.</span>
+                {% else %}
+                  <span class="badge none">—</span>
+                {% endif %}
+              </td>
+            {% endfor %}
+          </tr>
+        {% else %}
+          <tr><td colspan="{{ 1 + endpoints|length }}" class="muted">Нет данных</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</body>
+</html>

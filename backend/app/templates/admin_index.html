@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8" />
+  <title>Админ — API Challenge</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <style>
+    body { font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial; margin: 2rem; }
+    .card { border: 1px solid #ddd; padding: 1rem; border-radius: .5rem; max-width: 640px; }
+    .stats { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 1rem; }
+    .stat { background: #f7f7f7; padding: 1rem; border-radius: .5rem; text-align: center; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <h1>Админ-панель (минимум)</h1>
+    <div class="stats">
+      <div class="stat"><div>Пользователей</div><strong>{{ total_users }}</strong></div>
+      <div class="stat"><div>Попыток</div><strong>{{ total_attempts }}</strong></div>
+      <div class="stat"><div>Логов</div><strong>{{ total_logs }}</strong></div>
+    </div>
+    <p style="margin-top:1rem">Swagger: <a href="/docs">/docs</a></p>
+  </div>
+</body>
+</html>

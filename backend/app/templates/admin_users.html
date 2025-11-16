@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Админ — Пользователи</title>
+  <style>
+    body{font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;background:#0f172a;color:#e2e8f0;margin:0}
+    header{display:flex;justify-content:space-between;align-items:center;padding:16px 20px;background:#111827;border-bottom:1px solid #1f2937}
+    a,button{cursor:pointer}
+    .wrap{padding:20px}
+    table{width:100%;border-collapse:collapse;margin-top:12px}
+    th,td{padding:10px 12px;border-bottom:1px solid #1f2937;text-align:left}
+    th{color:#cbd5e1;font-weight:600;background:#0b1220}
+    tr:hover{background:#0b122033}
+    .badge{display:inline-block;padding:2px 8px;border-radius:999px;font-size:12px}
+    .badge.admin{background:#1d4ed8;color:#fff}
+    .badge.participant{background:#334155;color:#e2e8f0}
+    .badge.active{background:#166534;color:#dcfce7}
+    .badge.inactive{background:#7f1d1d;color:#fecaca}
+    .actions{display:flex;gap:6px;flex-wrap:wrap}
+    .btn{background:#334155;color:#e2e8f0;border:none;border-radius:8px;padding:6px 10px}
+    .btn.primary{background:#3b82f6}
+    .btn.warn{background:#b91c1c}
+    .muted{color:#94a3b8}
+    .nav a{color:#93c5fd;margin-right:12px;text-decoration:none}
+  </style>
+</head>
+<body>
+  <header>
+    <div>
+      <strong>Админ‑панель</strong>
+      <span class="muted">/ Пользователи</span>
+    </div>
+    <nav class="nav">
+      <a href="/admin">Dashboard</a>
+      <a href="/admin/users">Users</a>
+      <a href="/admin/leaderboard">Leaderboard</a>
+      <form method="post" action="/admin/logout" style="display:inline">
+        <button class="btn warn" type="submit">Выйти</button>
+      </form>
+    </nav>
+  </header>
+  <div class="wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>ID</th>
+          <th>Логин</th>
+          <th>Роль</th>
+          <th>Статус</th>
+          <th>Ключ</th>
+          <th>Действия</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for u in users %}
+          <tr>
+            <td>{{ u.id }}</td>
+            <td>{{ u.username }}</td>
+            <td>
+              <span class="badge {{ 'admin' if u.role=='admin' else 'participant' }}">{{ u.role }}</span>
+            </td>
+            <td>
+              <span class="badge {{ 'active' if u.is_active else 'inactive' }}">{{ 'active' if u.is_active else 'inactive' }}</span>
+            </td>
+            <td class="muted">{{ (keys[u.id].key if keys[u.id] else '—') }}</td>
+            <td class="actions">
+              <form method="post" action="/admin/users/action">
+                <input type="hidden" name="user_id" value="{{ u.id }}" />
+                {% if not u.is_active %}
+                  <button class="btn primary" name="action" value="activate">Активировать</button>
+                {% else %}
+                  <button class="btn" name="action" value="deactivate">Деактивировать</button>
+                {% endif %}
+                {% if u.role != 'admin' %}
+                  <button class="btn" name="action" value="make_admin">Повысить до admin</button>
+                {% endif %}
+                <button class="btn" name="action" value="revoke_key">Отозвать ключ</button>
+                <button class="btn" name="action" value="create_key">Создать ключ</button>
+              </form>
+            </td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</body>
+</html>

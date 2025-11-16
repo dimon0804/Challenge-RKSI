@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Вход в админ‑панель</title>
+  <style>
+    body { font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif; background:#0f172a; color:#e2e8f0; display:flex; align-items:center; justify-content:center; min-height:100vh; }
+    .card { background:#111827; border:1px solid #1f2937; border-radius:12px; padding:28px; width:100%; max-width:360px; box-shadow: 0 10px 30px rgba(0,0,0,.4); }
+    h1 { font-size:20px; margin:0 0 16px; color:#f8fafc; }
+    .muted { color:#94a3b8; font-size:13px; margin-bottom:16px; }
+    .field { margin-bottom:14px; }
+    label { display:block; margin-bottom:6px; color:#cbd5e1; font-size:13px; }
+    input { width:100%; background:#0b1220; color:#e2e8f0; border:1px solid #23304a; border-radius:8px; padding:10px 12px; outline:none; }
+    input:focus { border-color:#3b82f6; box-shadow:0 0 0 3px rgba(59,130,246,.25); }
+    .error { background:#7f1d1d; color:#fecaca; border:1px solid #991b1b; padding:10px 12px; border-radius:8px; font-size:13px; margin-bottom:14px; }
+    .actions { display:flex; gap:8px; align-items:center; justify-content:space-between; margin-top:8px; }
+    button { background:#3b82f6; color:#fff; border:none; border-radius:8px; padding:10px 12px; cursor:pointer; font-weight:600; }
+    button:hover { background:#2563eb; }
+    a { color:#93c5fd; text-decoration:none; font-size:13px; }
+    a:hover { text-decoration:underline; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <h1>Админ‑панель</h1>
+    <p class="muted">Введите данные администратора, чтобы войти.</p>
+    {% if error %}
+      <div class="error">{{ error }}</div>
+    {% endif %}
+    <form method="post" action="/admin/login">
+      <div class="field">
+        <label for="username">Логин</label>
+        <input id="username" name="username" type="text" required placeholder="admin" />
+      </div>
+      <div class="field">
+        <label for="password">Пароль</label>
+        <input id="password" name="password" type="password" required placeholder="••••••" />
+      </div>
+      <div class="actions">
+        <span class="muted">Подсказка: admin / пароль из .env</span>
+        <button type="submit">Войти</button>
+      </div>
+    </form>
+  </div>
+</body>
+</html>

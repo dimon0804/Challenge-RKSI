@@ -1,0 +1,43 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.pkl
+
+# Virtual envs
+.venv/
+venv/
+ENV/
+
+# IDE / Editor
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Env files
+*.env
+.env.local
+
+# Logs
+*.log
+logs/
+
+# Database & backups
+db_data/
+*.sqlite3
+*.db
+backup.sql
+
+# Docker
+*.pid
+
+# Project specific
+api-challenge/backend/app/__pycache__/
+api-challenge/bot/__pycache__/
+api-challenge/bot_storage.db

@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Админ — Лидерборд</title>
+  <style>
+    body{font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;background:#0f172a;color:#e2e8f0;margin:0}
+    header{display:flex;justify-content:space-between;align-items:center;padding:16px 20px;background:#111827;border-bottom:1px solid #1f2937}
+    a,button{cursor:pointer}
+    .wrap{padding:20px}
+    table{width:100%;border-collapse:collapse;margin-top:12px}
+    th,td{padding:10px 12px;border-bottom:1px solid #1f2937;text-align:left}
+    th{color:#cbd5e1;font-weight:600;background:#0b1220}
+    tr:hover{background:#0b122033}
+    .muted{color:#94a3b8}
+    .nav a{color:#93c5fd;margin-right:12px;text-decoration:none}
+  </style>
+</head>
+<body>
+  <header>
+    <div>
+      <strong>Админ‑панель</strong>
+      <span class="muted">/ Лидерборд</span>
+    </div>
+    <nav class="nav">
+      <a href="/admin">Dashboard</a>
+      <a href="/admin/users">Users</a>
+      <a href="/admin/leaderboard">Leaderboard</a>
+      <form method="post" action="/admin/logout" style="display:inline">
+        <button class="btn" type="submit">Выйти</button>
+      </form>
+    </nav>
+  </header>
+  <div class="wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>#</th>
+          <th>Логин</th>
+          <th>Верных решений</th>
+          <th>Последний верный</th>
+          <th>Статус</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for row in rows %}
+          <tr>
+            <td>{{ loop.index }}</td>
+            <td>{{ row.user.username }}</td>
+            <td>{{ row.correct_count }}</td>
+            <td>{{ row.last_correct_at or '—' }}</td>
+            <td class="muted">{{ 'active' if row.user.is_active else 'inactive' }}</td>
+          </tr>
+        {% else %}
+          <tr><td colspan="5" class="muted">Нет данных</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</body>
+</html>
