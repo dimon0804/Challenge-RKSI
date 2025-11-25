@@ -152,6 +152,8 @@ async def register_start(msg: types.Message, state: FSMContext):
     logger.info("Register start user_id=%s text=%r", msg.from_user.id if msg.from_user else None, msg.text)
     remember_chat(msg)
     await state.finish()
+    await msg.answer("Введите логин (ФАМИЛИЯ_ГРУППА (например: ДОВИРЯК_ИС-24)):")
+    await Register.username.set()
 
 
 @dp.message_handler(lambda m: m.text == 'Проверить IP сервера', state='*')
@@ -191,7 +193,6 @@ async def check_ip_submit(msg: types.Message, state: FSMContext):
         "Пока нет, но ты близко. Попробуй ещё раз — цифры уже спрятаны на листовке.\n\n"
         f"Подсказка: {hint}"
     )
-    await state.finish()
 
 
 @dp.message_handler(state=Register.username, content_types=['text'])
