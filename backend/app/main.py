@@ -13,6 +13,7 @@ from starlette.middleware.sessions import SessionMiddleware
 from fastapi import Query
 from fastapi.openapi.utils import get_openapi
 import hashlib
+from datetime import datetime, timezone, timedelta
 
 # Важно: для демонстрации используется синхронный SQLAlchemy + psycopg2
 DATABASE_URL = os.getenv("DATABASE_URL", "postgresql+psycopg2://api_user:api_password@localhost:5432/api_challenge")
@@ -41,6 +42,21 @@ pwd_ctx = CryptContext(schemes=["bcrypt"], deprecated="auto")
 # Простые in-memory лимитеры (для учебных целей)
 _rate_buckets = {}
 _brute_force = {}
+
+MSK_TZ = timezone(timedelta(hours=3))
+
+
+def format_dt_msk(dt: Optional[datetime]) -> str:
+    """Форматирование datetime в строку в часовом поясе МСК (UTC+3)."""
+    if not dt:
+        return ""
+    if dt.tzinfo is None:
+        dt = dt.replace(tzinfo=timezone.utc)
+    try:
+        dt_msk = dt.astimezone(MSK_TZ)
+    except Exception:
+        dt_msk = dt
+    return dt_msk.strftime("%Y-%m-%d %H:%M:%S")
 
 # ----- Импорт ORM-моделей -----
 from app.models.base import Base  # type: ignore
@@ -216,6 +232,47 @@ async def admin_endpoints_action(request: Request, db: Session = Depends(get_db)
     return RedirectResponse(url="/admin/endpoints", status_code=302)
 
 
+@app.post("/admin/endpoints/create", include_in_schema=False)
+async def admin_endpoints_create(request: Request, db: Session = Depends(get_db)):
+    admin = get_current_admin(request, db)
+    if not admin:
+        return RedirectResponse(url="/admin/login", status_code=302)
+    form = await request.form()
+    try:
+        challenge_id_raw = str(form.get("challenge_id", "")).strip()
+        challenge_id = int(challenge_id_raw) if challenge_id_raw.isdigit() else 0
+    except Exception:
+        challenge_id = 0
+    path = str(form.get("path", "")).strip()
+    method = str(form.get("method", "GET")).strip().upper() or "GET"
+    prompt = str(form.get("prompt", "")).strip()
+    answer = str(form.get("answer", "")).strip()
+    order_raw = str(form.get("order_index", "")).strip()
+    try:
+        order_index = int(order_raw) if order_raw.isdigit() else 0
+    except Exception:
+        order_index = 0
+
+    # Минимальная валидация: требуется challenge_id, path, prompt и answer
+    if not challenge_id or not path or not prompt or not answer:
+        return RedirectResponse(url="/admin/endpoints", status_code=302)
+
+    answer_hash = hashlib.sha256(answer.encode()).hexdigest()
+
+    ep = Endpoint(
+        challenge_id=challenge_id,
+        path=path,
+        method=method,
+        prompt=prompt,
+        answer_hash=answer_hash,
+        order_index=order_index,
+        is_active=True,
+    )
+    db.add(ep)
+    db.commit()
+    return RedirectResponse(url="/admin/endpoints", status_code=302)
+
+
 # ----- Утилиты админ-аутентификации -----
 def get_current_admin(request: Request, db: Session) -> Optional[User]:
     admin_user_id = request.session.get("admin_user_id")
@@ -387,6 +444,7 @@ def admin_leaderboard(
             "active_only": active_only,
             "min_correct": min_correct,
             "endpoints_total": endpoints_total,
+            "format_dt_msk": format_dt_msk,
         },
     )
 
@@ -476,14 +534,23 @@ def admin_logs(
     logs = q.all()
     # Карта пользователей
     user_map = {u.id: u for u in db.query(User).all()}
+    # Парсим meta как JSON для удобного отображения
+    meta_parsed = {}
+    for l in logs:
+        try:
+            meta_parsed[l.id] = json.loads(l.meta) if l.meta else None
+        except Exception:
+            meta_parsed[l.id] = None
     return templates.TemplateResponse("admin_logs.html", {
         "request": request,
         "admin": admin,
         "logs": logs,
         "user_map": user_map,
+        "meta_parsed": meta_parsed,
         "filter_user_id": user_id,
         "filter_event": event or "",
         "limit": limit,
+        "format_dt_msk": format_dt_msk,
     })
 
 
@@ -581,88 +648,148 @@ def export_judges(db: Session = Depends(get_db), request: Request = None):
     return PlainTextResponse("\n".join(rows), media_type="text/csv")
 
 
-@app.get("/admin/export/judges.pdf", include_in_schema=False)
-def export_judges_pdf(db: Session = Depends(get_db), request: Request = None):
+
+
+@app.get("/admin/user_diagnostics", response_class=HTMLResponse, include_in_schema=False)
+def admin_user_diagnostics(
+    request: Request,
+    db: Session = Depends(get_db),
+    username: Optional[str] = Query(default=None),
+):
     admin = get_current_admin(request, db)
     if not admin:
         return RedirectResponse(url="/admin/login", status_code=302)
-    # Сформируем PDF в памяти
-    from reportlab.lib.pagesizes import A4
-    from reportlab.pdfgen import canvas
-    from io import BytesIO
-    buffer = BytesIO()
-    c = canvas.Canvas(buffer, pagesize=A4)
-    width, height = A4
-    y = height - 40
-    c.setFont("Helvetica-Bold", 14)
-    c.drawString(40, y, "API Challenge — Итоги (для судей)")
-    y -= 24
-    c.setFont("Helvetica", 10)
-    # Данные
-    from sqlalchemy import func
-    endpoints_total = db.query(Endpoint).filter_by(is_active=True).count()
-    agg = (
-        db.query(
-            Attempt.user_id,
-            func.sum(func.case((Attempt.is_correct == True, 1), else_=0)).label("correct_count"),
-            func.max(func.case((Attempt.is_correct == True, Attempt.created_at), else_=None)).label("last_correct_at"),
-            func.count(Attempt.id).label("attempts_count"),
+
+    filter_username = (username or "").strip()
+    user = None
+    endpoints = []
+    by_ep = {}
+    logs = []
+    meta_parsed = {}
+
+    if filter_username:
+        user = db.query(User).filter(User.username.ilike(f"%{filter_username}%")).order_by(User.id.asc()).first()
+
+    if user:
+        # Этапы
+        endpoints = db.query(Endpoint).filter_by(is_active=True).order_by(Endpoint.order_index.asc(), Endpoint.id.asc()).all()
+        # Попытки по этапам
+        attempts = db.query(Attempt).filter_by(user_id=user.id).all()
+        tmp = {}
+        for a in attempts:
+            data = tmp.setdefault(a.endpoint_id, {"attempts": 0, "correct": False})
+            data["attempts"] += 1
+            if a.is_correct:
+                data["correct"] = True
+        by_ep = tmp
+
+        # Логи пользователя
+        logs = (
+            db.query(LogEntry)
+            .filter(LogEntry.user_id == user.id)
+            .order_by(LogEntry.created_at.desc())
+            .limit(200)
+            .all()
         )
-        .group_by(Attempt.user_id)
-        .all()
+        for l in logs:
+            try:
+                meta_parsed[l.id] = json.loads(l.meta) if l.meta else None
+            except Exception:
+                meta_parsed[l.id] = None
+
+    return templates.TemplateResponse(
+        "admin_user_diagnostics.html",
+        {
+            "request": request,
+            "admin": admin,
+            "user": user,
+            "endpoints": endpoints,
+            "by_ep": by_ep,
+            "logs": logs,
+            "meta_parsed": meta_parsed,
+            "filter_username": filter_username,
+            "format_dt_msk": format_dt_msk,
+        },
     )
-    user_map = {u.id: u.username for u in db.query(User).all()}
-    data = []
-    for user_id, correct_count, last_correct_at, attempts_count in agg:
-        completed_at = last_correct_at if endpoints_total and int(correct_count or 0) >= int(endpoints_total) else None
-        data.append((user_map.get(user_id, ''), int(correct_count or 0), int(attempts_count or 0), completed_at))
-    data.sort(key=lambda x: (-x[1], x[3] or time.time()))
-    # Заголовок таблицы
-    y -= 10
-    c.setFont("Helvetica-Bold", 10)
-    c.drawString(40, y, "#")
-    c.drawString(70, y, "Участник")
-    c.drawString(220, y, "Верные")
-    c.drawString(280, y, "Попытки")
-    c.drawString(350, y, "Финиш")
-    y -= 14
-    c.setFont("Helvetica", 10)
-    rank = 1
-    for uname, cc, atts, comp in data:
-        if y < 60:
-            c.showPage(); y = height - 40
-            c.setFont("Helvetica-Bold", 10)
-            c.drawString(40, y, "#"); c.drawString(70, y, "Участник"); c.drawString(220, y, "Верные"); c.drawString(280, y, "Попытки"); c.drawString(350, y, "Финиш")
-            y -= 14; c.setFont("Helvetica", 10)
-        c.drawString(40, y, str(rank))
-        c.drawString(70, y, uname)
-        c.drawString(220, y, str(cc))
-        c.drawString(280, y, str(atts))
-        c.drawString(350, y, str(comp or '—'))
-        y -= 14
-        rank += 1
-    c.showPage()
-    c.save()
-    buffer.seek(0)
-    return StreamingResponse(buffer, media_type="application/pdf", headers={"Content-Disposition": "attachment; filename=judges.pdf"})
 
 
 @app.post("/challenge/auth", response_model=AuthResponse, tags=["Challenge"])
 def challenge_auth(payload: AuthRequest, request: Request, db: Session = Depends(get_db)):
     ip = request.client.host if request.client else "unknown"
     if rate_limited(ip, RATE_LIMIT_PER_MINUTE):
+        db.add(
+            LogEntry(
+                user_id=None,
+                event="auth",
+                meta=json.dumps({
+                    "username": payload.username,
+                    "ok": False,
+                    "reason": "rate_limited",
+                    "ip": ip,
+                    "path": request.url.path,
+                    "method": request.method,
+                }),
+            )
+        )
+        db.commit()
         raise HTTPException(429, detail="Слишком много запросов, попробуйте позже")
 
     if brute_guard(payload.username):
+        db.add(
+            LogEntry(
+                user_id=None,
+                event="auth",
+                meta=json.dumps({
+                    "username": payload.username,
+                    "ok": False,
+                    "reason": "brute_block",
+                    "ip": ip,
+                    "path": request.url.path,
+                    "method": request.method,
+                }),
+            )
+        )
+        db.commit()
         raise HTTPException(429, detail="Слишком много попыток, подождите")
 
     user = db.query(User).filter_by(username=payload.username).first()
     if not user:
         brute_fail(payload.username)
+        db.add(
+            LogEntry(
+                user_id=None,
+                event="auth",
+                meta=json.dumps({
+                    "username": payload.username,
+                    "ok": False,
+                    "reason": "user_not_found",
+                    "ip": ip,
+                    "path": request.url.path,
+                    "method": request.method,
+                }),
+            )
+        )
+        db.commit()
         raise HTTPException(401, detail="Неверные учетные данные")
 
     if not verify_password(payload.password, user.password_hash):
         brute_fail(payload.username)
+        db.add(
+            LogEntry(
+                user_id=user.id,
+                event="auth",
+                meta=json.dumps({
+                    "username": payload.username,
+                    "user_id": user.id,
+                    "ok": False,
+                    "reason": "bad_password",
+                    "ip": ip,
+                    "path": request.url.path,
+                    "method": request.method,
+                }),
+            )
+        )
+        db.commit()
         raise HTTPException(401, detail="Неверные учетные данные")
 
     brute_reset(payload.username)
@@ -676,6 +803,23 @@ def challenge_auth(payload: AuthRequest, request: Request, db: Session = Depends
         db.add(key)
         db.commit()
         db.refresh(key)
+
+    db.add(
+        LogEntry(
+            user_id=user.id,
+            event="auth",
+            meta=json.dumps({
+                "username": user.username,
+                "user_id": user.id,
+                "ok": True,
+                "reason": "ok",
+                "ip": ip,
+                "path": request.url.path,
+                "method": request.method,
+            }),
+        )
+    )
+    db.commit()
 
     return {"api_key": key.key}
 
@@ -705,7 +849,23 @@ def get_endpoint(endpoint_id: int, request: Request, db: Session = Depends(get_d
                     detail="Этот этап станет доступен после прохождения предыдущих этапов",
                 )
     # Логируем
-    db.add(LogEntry(user_id=user.id, event="view_endpoint", meta=json.dumps({"endpoint_id": endpoint_id})))
+    ip = request.client.host if request.client else "unknown"
+    db.add(
+        LogEntry(
+            user_id=user.id,
+            event="view_endpoint",
+            meta=json.dumps(
+                {
+                    "endpoint_id": endpoint_id,
+                    "path": request.url.path,
+                    "method": request.method,
+                    "ip": ip,
+                    "user_id": user.id,
+                    "username": user.username,
+                }
+            ),
+        )
+    )
     db.commit()
     return {"endpoint_id": ep.id, "prompt": ep.prompt}
 
@@ -721,7 +881,28 @@ def submit_answer(payload: SubmitRequest, request: Request, db: Session = Depend
     is_correct = hashlib.sha256(payload.value.strip().encode()).hexdigest() == ep.answer_hash
 
     db.add(Attempt(user_id=user.id, endpoint_id=ep.id, submitted_value=payload.value, is_correct=is_correct))
-    db.add(LogEntry(user_id=user.id, event="submit", meta=json.dumps({"endpoint_id": ep.id, "ok": is_correct})))
+
+    # Логируем детально
+    ip = request.client.host if request.client else "unknown"
+    value_preview = payload.value[:200]
+    db.add(
+        LogEntry(
+            user_id=user.id,
+            event="submit",
+            meta=json.dumps(
+                {
+                    "endpoint_id": ep.id,
+                    "ok": is_correct,
+                    "path": request.url.path,
+                    "method": request.method,
+                    "ip": ip,
+                    "user_id": user.id,
+                    "username": user.username,
+                    "value_preview": value_preview,
+                }
+            ),
+        )
+    )
     db.commit()
 
     return {"ok": is_correct}

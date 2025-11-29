@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Админ — Диагностика участника</title>
+  <style>
+    body{font-family:system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif;background:#0f172a;color:#e2e8f0;margin:0;}
+    header{display:flex;justify-content:space-between;align-items:center;padding:16px 20px;background:#111827;border-bottom:1px solid #1f2937;}
+    .wrap{padding:20px;max-width:1100px;margin:0 auto;}
+    .nav a{color:#93c5fd;margin-right:12px;text-decoration:none;}
+    input,select{background:#0b1220;border:1px solid #23304a;color:#e2e8f0;border-radius:8px;padding:6px 10px;}
+    button{background:#334155;color:#e2e8f0;border:none;border-radius:8px;padding:6px 10px;cursor:pointer;}
+    table{width:100%;border-collapse:collapse;margin-top:12px;}
+    th,td{padding:8px 10px;border-bottom:1px solid #1f2937;text-align:left;font-size:13px;}
+    th{color:#cbd5e1;font-weight:600;background:#0b1220;}
+    tr:hover{background:#0b122033;}
+    .muted{color:#94a3b8;font-size:13px;}
+    .card{background:#0b1220;border:1px solid #1f2937;border-radius:12px;padding:14px 16px;margin-top:16px;}
+    .badge{display:inline-block;padding:2px 8px;border-radius:999px;font-size:12px;}
+    .badge.ok{background:#166534;color:#bbf7d0;}
+    .badge.bad{background:#7f1d1d;color:#fecaca;}
+  </style>
+</head>
+<body>
+  <header>
+    <div>
+      <strong>Админ‑панель</strong>
+      <span class="muted">/ Диагностика участника</span>
+    </div>
+    <nav class="nav">
+      <a href="/admin">Dashboard</a>
+      <a href="/admin/users">Users</a>
+      <a href="/admin/leaderboard">Leaderboard</a>
+      <a href="/admin/logs">Logs</a>
+      <a href="/admin/progress">Progress</a>
+      <a href="/admin/endpoints">Endpoints</a>
+      <form method="post" action="/admin/logout" style="display:inline">
+        <button type="submit">Выйти</button>
+      </form>
+    </nav>
+  </header>
+  <div class="wrap">
+    <form method="get" action="/admin/user_diagnostics" style="display:flex;gap:10px;align-items:center">
+      <div>
+        <label class="muted">Username</label><br/>
+        <input type="text" name="username" value="{{ filter_username or '' }}" placeholder="ФАМИЛИЯ_ГРУППА" />
+      </div>
+      <div style="margin-top:18px">
+        <button type="submit">Показать</button>
+      </div>
+    </form>
+
+    {% if user is none and filter_username %}
+      <p class="muted" style="margin-top:16px">Пользователь с таким username не найден.</p>
+    {% endif %}
+
+    {% if user %}
+      <div class="card">
+        <h3>Участник: {{ user.username }} (ID {{ user.id }})</h3>
+        <p class="muted">Активен: {{ 'да' if user.is_active else 'нет' }}, роль: {{ user.role }}</p>
+      </div>
+
+      <div class="card">
+        <h3>Прогресс по этапам</h3>
+        <table>
+          <thead>
+            <tr>
+              <th>Этап</th>
+              <th>Path</th>
+              <th>Порядок</th>
+              <th>Попыток</th>
+              <th>Статус</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for ep in endpoints %}
+              {% set cell = by_ep.get(ep.id) %}
+              <tr>
+                <td>#{{ ep.id }}</td>
+                <td>{{ ep.path }}</td>
+                <td>{{ ep.order_index }}</td>
+                <td>{{ cell.attempts if cell else 0 }}</td>
+                <td>
+                  {% if cell and cell.correct %}
+                    <span class="badge ok">решён</span>
+                  {% elif cell and not cell.correct %}
+                    <span class="badge bad">пока нет</span>
+                  {% else %}
+                    <span class="muted">нет попыток</span>
+                  {% endif %}
+                </td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+
+      <div class="card">
+        <h3>Логи участника (последние {{ logs|length }} записей)</h3>
+        <table>
+          <thead>
+            <tr>
+              <th>ID</th>
+              <th>Время</th>
+              <th>Event</th>
+              <th>Meta</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for l in logs %}
+              <tr>
+                <td>{{ l.id }}</td>
+                <td>{{ format_dt_msk(l.created_at) }} МСК</td>
+                <td>{{ l.event }}</td>
+                <td class="muted">
+                  {% if meta_parsed and l.id in meta_parsed and meta_parsed[l.id] %}
+                    <table style="font-size:12px;border-collapse:collapse;width:100%;border:none">
+                      {% for k, v in meta_parsed[l.id].items() %}
+                        <tr>
+                          <td style="border:none;padding:2px 4px;color:#94a3b8;white-space:nowrap">{{ k }}</td>
+                          <td style="border:none;padding:2px 4px;color:#e2e8f0">{{ v }}</td>
+                        </tr>
+                      {% endfor %}
+                    </table>
+                  {% else %}
+                    {{ l.meta }}
+                  {% endif %}
+                </td>
+              </tr>
+            {% else %}
+              <tr><td colspan="4" class="muted">Нет логов для этого пользователя</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    {% endif %}
+  </div>
+</body>
+</html>

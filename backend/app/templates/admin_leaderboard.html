@@ -49,7 +49,7 @@
             <td>{{ loop.index }}</td>
             <td>{{ row.user.username }}</td>
             <td>{{ row.correct_count }}</td>
-            <td>{{ row.last_correct_at or '—' }}</td>
+            <td>{% if row.last_correct_at %}{{ format_dt_msk(row.last_correct_at) }} МСК{% else %}—{% endif %}</td>
             <td class="muted">{{ 'active' if row.user.is_active else 'inactive' }}</td>
           </tr>
         {% else %}

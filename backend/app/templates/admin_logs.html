@@ -47,7 +47,13 @@
         </div>
         <div>
           <label class="muted">Event</label><br/>
-          <input type="text" name="event" value="{{ filter_event }}" placeholder="submit / view_endpoint / bot_register" />
+          <select name="event">
+            <option value="" {% if not filter_event %}selected{% endif %}>Все события</option>
+            <option value="auth" {% if filter_event == 'auth' %}selected{% endif %}>auth</option>
+            <option value="view_endpoint" {% if filter_event == 'view_endpoint' %}selected{% endif %}>view_endpoint</option>
+            <option value="submit" {% if filter_event == 'submit' %}selected{% endif %}>submit</option>
+            <option value="bot_register" {% if filter_event == 'bot_register' %}selected{% endif %}>bot_register</option>
+          </select>
         </div>
         <div>
           <label class="muted">Limit</label><br/>
@@ -74,10 +80,23 @@
         {% for l in logs %}
           <tr>
             <td>{{ l.id }}</td>
-            <td>{{ l.created_at }}</td>
+            <td>{{ format_dt_msk(l.created_at) }} МСК</td>
             <td>{{ user_map[l.user_id].username if l.user_id in user_map else '—' }}</td>
             <td>{{ l.event }}</td>
-            <td class="muted">{{ l.meta }}</td>
+            <td class="muted">
+              {% if meta_parsed and l.id in meta_parsed and meta_parsed[l.id] %}
+                <table style="font-size:12px;border-collapse:collapse;width:100%;border:none">
+                  {% for k, v in meta_parsed[l.id].items() %}
+                    <tr>
+                      <td style="border:none;padding:2px 4px;color:#94a3b8;white-space:nowrap">{{ k }}</td>
+                      <td style="border:none;padding:2px 4px;color:#e2e8f0">{{ v }}</td>
+                    </tr>
+                  {% endfor %}
+                </table>
+              {% else %}
+                {{ l.meta }}
+              {% endif %}
+            </td>
           </tr>
         {% else %}
           <tr><td colspan="5" class="muted">Нет записей</td></tr>

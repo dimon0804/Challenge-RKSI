@@ -90,6 +90,47 @@
     {% else %}
       <div class="muted">Нет эндпоинтов</div>
     {% endfor %}
+    <div class="card">
+      <div class="card__head">
+        <div class="card__meta">
+          <div class="kv"><span class="k">Создать</span><span class="v">новый этап</span></div>
+        </div>
+      </div>
+      <form method="post" action="/admin/endpoints/create">
+        <div class="body">
+          <div class="grid">
+            <div>
+              <label>Challenge ID</label>
+              <input name="challenge_id" type="number" min="1" placeholder="ID челленджа (например, 1)" />
+              <div class="hint">Существующие челленджи: {% for ch in challenges.values() %}#{{ ch.id }} — {{ ch.title }}{% if not loop.last %}, {% endif %}{% endfor %}</div>
+              <div style="margin-top:12px">
+                <label>Path</label>
+                <input name="path" type="text" placeholder="Например, /challenge/endpoint/4" />
+              </div>
+              <div style="margin-top:12px">
+                <label>Method</label>
+                <input name="method" type="text" value="GET" />
+              </div>
+            </div>
+            <div>
+              <label>Prompt</label>
+              <textarea name="prompt" placeholder="Текст задания для участника"></textarea>
+              <div style="margin-top:12px">
+                <label>Ответ (будет захеширован SHA‑256)</label>
+                <input name="answer" type="text" placeholder="Секретное слово / ответ" />
+              </div>
+              <div style="margin-top:12px">
+                <label>Order index</label>
+                <input name="order_index" type="number" min="0" placeholder="Порядок прохождения (например, 4)" />
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="actions">
+          <button class="btn primary" type="submit">Создать этап</button>
+        </div>
+      </form>
+    </div>
   </div>
 </body>
 </html>
