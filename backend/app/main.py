@@ -253,8 +253,12 @@ async def admin_endpoints_create(request: Request, db: Session = Depends(get_db)
     except Exception:
         order_index = 0
 
-    # Минимальная валидация: требуется challenge_id, path, prompt и answer
+    # Минимальная валидация: требуется существующий challenge_id, path, prompt и answer
     if not challenge_id or not path or not prompt or not answer:
+        return RedirectResponse(url="/admin/endpoints", status_code=302)
+
+    challenge = db.get(Challenge, challenge_id)
+    if not challenge:
         return RedirectResponse(url="/admin/endpoints", status_code=302)
 
     answer_hash = hashlib.sha256(answer.encode()).hexdigest()
@@ -595,12 +599,12 @@ def export_leaderboard(db: Session = Depends(get_db), request: Request = None):
     admin = get_current_admin(request, db)
     if not admin:
         return RedirectResponse(url="/admin/login", status_code=302)
-    from sqlalchemy import func
+    from sqlalchemy import func, case
     agg = (
         db.query(
             Attempt.user_id,
-            func.sum(func.case((Attempt.is_correct == True, 1), else_=0)).label("correct_count"),
-            func.max(func.case((Attempt.is_correct == True, Attempt.created_at), else_=None)).label("last_correct_at"),
+            func.sum(case((Attempt.is_correct == True, 1), else_=0)).label("correct_count"),
+            func.max(case((Attempt.is_correct == True, Attempt.created_at), else_=None)).label("last_correct_at"),
         )
         .group_by(Attempt.user_id)
         .all()
