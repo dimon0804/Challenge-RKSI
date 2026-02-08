@@ -41,3 +41,5 @@
 
 - Пример `infra/systemd-unit-example.service`
 - Рекомендован reverse-proxy nginx, HTTPS (Let's Encrypt/Certbot)
+
+ПЕНИС
